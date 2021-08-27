@@ -1,0 +1,19 @@
+{
+  "name": "dc_motor_driver",
+  "keywords": "servo, dc motor driver, velocity control, PID",
+  "description": "A library that will turn a DC motor with encoder into a servo, providing velocity and position control",
+  "url": "https://github.com/chick92/dc_motor_driver",
+  "include": "DCMS",
+  "authors":
+  [
+    {
+      "name": "Dr. Benjamin Bird"
+    }
+  ],
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/chick92/dc_motor_driver"
+  },
+  "frameworks": "arduino"
+}
