@@ -8,6 +8,7 @@ load disturbance. However, too much Kd will cause excessive response and oversho
 A fast PID loop tuning usually overshoots slightly to reach the setpoint more quickly; however, some systems 
 cannot accept overshoot, in which case an overdamped closed-loop system is required, which will 
 require a Kp setting significantly less than half that of the Kp setting that was causing oscillation.
+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
 */ 
 
 
