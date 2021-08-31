@@ -3,14 +3,19 @@
 
 #include "Arduino.h"
 
-class dcms
-{
-  public:
-    dcms(char IN1, char IN2, char EN);
-    void forwards(char pwm);
-    void backwards(char pwm);
+class dcms{
   private:
-    char _IN1, _IN2, _EN;
-};
+    float kp, kd, ki, umax; // Parameters
+    float eprev, eintegral; // Storage
+    long prevT;
 
+  public:
+  // Constructor
+  dcms(float kp, float kd, float ki, char umax, float eprev, float eintegral);
+  void setParams(float kpIn, float kdIn, float kiIn, float umaxIn);
+  void evaluatePosition(int value, int target, int &pwr, int &dir);
+  void setMotor(int dir, int pwmVal, int pwm, int in1, int in2);
+}; 
+
+ 
 #endif
