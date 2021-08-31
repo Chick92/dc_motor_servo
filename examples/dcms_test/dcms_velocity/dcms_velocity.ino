@@ -86,7 +86,7 @@ int in1 = 9;
 SimplePID pid;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(enca,INPUT);
   pinMode(encb,INPUT);
   attachInterrupt(digitalPinToInterrupt(enca),readEncoder,RISING);
@@ -97,32 +97,34 @@ void setup() {
   pinMode(in1,OUTPUT);
   pinMode(in2,OUTPUT);
 
-  pid.setParams(8,0,0,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
+  pid.setParams(8,0.025,4,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
   
   Serial.println("target pos");
 }
 
 void loop() {
-  // set target position
-  int target;
-  target = -50;
-
+  int target = 0;
   int pos;
-  pos = encoderRPM;
-  
   int pwr, dir;
-  // evaluate the control signal
-  pid.evaluatePosition(pos,target,pwr,dir);
-  // signal the motor
-  setMotor(dir,pwr,pwm,in1,in2);
-
-  Serial.print(target);
-  Serial.print(" ");
-  Serial.print(pos);
-  Serial.print(" ");
-  Serial.print(encoderRPM);
+  int loop_counter = 0;
   
-  Serial.println();
+  while(1){
+    loop_counter++;
+    if(loop_counter == 10000){
+      target = random(0, 100);
+      loop_counter = 0;
+    }
+
+    pos = encoderRPM;
+    pid.evaluatePosition(pos,target,pwr,dir);
+    setMotor(dir,pwr,pwm,in1,in2);
+    Serial.print(target);
+    Serial.print(" ");
+    Serial.print(pos);
+    //Serial.print(" ");
+    //Serial.print(encoderRPM);
+    Serial.println();
+  }
 }
 
 void setMotor(int dir, int pwmVal, int pwm, int in1, int in2){
