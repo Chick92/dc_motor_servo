@@ -1,3 +1,5 @@
+#include "dcms.h"
+
 /*
 If the system must remain online, one tuning method is to first set Ki Kd values to zero. 
 Increase the Kp until the output of the loop oscillates, then the Kp should be set to approximately 
@@ -11,10 +13,6 @@ require a Kp setting significantly less than half that of the Kp setting that wa
 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
 */ 
 
-
-// A class to compute the control signal
-
-
 volatile int posi = 0;
 long previousEncoderTime = micros();
 float deltaEncoderTime = 0;
@@ -22,16 +20,13 @@ long currentEncoderTime = 0;
 int encoderRPM = 0;
 
 
-
 int enca = 4; // YELLOW
 int encb = 5; // WHITE
-int pwm = 17;
+int pwm = 10;
 int in2 = 8;
 int in1 = 9;
 
-
-// PID class instances
-dcms pid;
+dcms pid(8.0, 0.025, 4.0, 255, 0.0, 0.0);
 
 void setup() {
   Serial.begin(115200);
