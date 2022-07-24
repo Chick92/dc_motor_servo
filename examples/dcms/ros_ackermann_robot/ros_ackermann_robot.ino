@@ -73,17 +73,17 @@ void loop() {
 
 
 void readEncoder(){
-  //515 ticks per rev in this mode
+  //2225 ticks per rev in this mode
   int b = digitalRead(encb);
   currentEncoderTime = micros();
   deltaEncoderTime = ((float) (currentEncoderTime - previousEncoderTime))/( 1.0e6 );
   previousEncoderTime = currentEncoderTime;
   if(b > 0){
     posi++;
-    encoderRPM = (1/(deltaEncoderTime * 515)*60);  
+    encoderRPM = (1/(deltaEncoderTime * 2225)*60);  
   }
   else{
     posi--;
-    encoderRPM = (-1/(deltaEncoderTime * 515)*60); 
+    encoderRPM = (-1/(deltaEncoderTime * 2225)*60); 
   }
 }
