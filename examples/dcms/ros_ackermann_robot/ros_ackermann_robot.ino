@@ -23,8 +23,9 @@ int encoderRPM = 0;
 int enca = 4; // YELLOW
 int encb = 5; // WHITE
 int pwm = 10;
-int in2 = 8;
-int in1 = 9;
+int in2 = 9;
+int in1 = 8;
+
 
 dcms pid(8.0, 0.025, 4.0, 255, 0.0, 0.0);
 
