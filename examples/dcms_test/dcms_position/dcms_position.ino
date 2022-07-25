@@ -54,12 +54,30 @@ class SimplePID{
 };
 
 volatile int posi = 0;
-
+/*
+ * ackermann
 int enca = 4; // YELLOW
 int encb = 5; // WHITE
 int pwm = 10;
 int in2 = 9;
 int in1 = 8;
+*/
+
+// Dagu right
+int enca = 2; // YELLOW
+int encb = 3; // WHITE
+int pwm = 16;
+int in1 = 10;
+int in2 = 11;
+
+/*
+//Dagu left
+int enca = 5; // YELLOW
+int encb = 4; // WHITE
+int pwm = 17;
+int in1 = 8;
+int in2 = 9;
+*/
 
 
 // PID class instances
@@ -77,7 +95,7 @@ void setup() {
   pinMode(in1,OUTPUT);
   pinMode(in2,OUTPUT);
 
-  pid.setParams(1,0.025,0,255);//P D I maxOuput
+  pid.setParams(2.5,0.025,0,255);//P D I maxOuput //2.5P for Dagu, 1 for ackermann
   
   Serial.println("target pos");
 }
@@ -85,7 +103,7 @@ void setup() {
 void loop() {
   // set target position
   int target;
-  target = 5000;
+  target = 100;
 
   int pos;
   pos = posi;

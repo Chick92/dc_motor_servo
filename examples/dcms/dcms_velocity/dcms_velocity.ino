@@ -25,16 +25,34 @@ int encoderRPM = 0;
 
 
 
+/*
+ * ackermann
 int enca = 4; // YELLOW
 int encb = 5; // WHITE
 int pwm = 10;
 int in2 = 9;
 int in1 = 8;
+*/
 
+// Dagu right
+int enca = 2; // YELLOW
+int encb = 3; // WHITE
+int pwm = 16;
+int in1 = 10;
+int in2 = 11;
+
+/*
+//Dagu left
+int enca = 5; // YELLOW
+int encb = 4; // WHITE
+int pwm = 17;
+int in1 = 8;
+int in2 = 9;
+*/
 
 
 // PID class instances
-dcms pid(8.0, 0.025, 4.0, 255, 0.0, 0.0);
+dcms pid(10.0, 0.05, 8.0, 255, 0.0, 0.0);
 
 void setup() {
   Serial.begin(115200);
@@ -48,7 +66,8 @@ void setup() {
   pinMode(in1,OUTPUT);
   pinMode(in2,OUTPUT);
 
-  pid.setParams(8,0.025,4,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
+  //pid.setParams(8,0.025,4,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0 ----- ackermann
+  pid.setParams(10,0.05,8,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0 ----- DAGU
   
   Serial.println("target pos");
 }
@@ -80,17 +99,18 @@ void loop() {
 
 
 void readEncoder(){
-  //2225 ticks per rev in this mode (on wheel output)
+  //2225 ticks per rev in this mode (on wheel output) Ackermann
+  //80 ticks Dagu - may not be enough....
   int b = digitalRead(encb);
   currentEncoderTime = micros();
   deltaEncoderTime = ((float) (currentEncoderTime - previousEncoderTime))/( 1.0e6 );
   previousEncoderTime = currentEncoderTime;
   if(b > 0){
     posi++;
-    encoderRPM = (1/(deltaEncoderTime * 2225)*60);  
+    encoderRPM = (1/(deltaEncoderTime * 80)*60);  
   }
   else{
     posi--;
-    encoderRPM = (-1/(deltaEncoderTime * 2225)*60); 
+    encoderRPM = (-1/(deltaEncoderTime * 80)*60); 
   }
 }
