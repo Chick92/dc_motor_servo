@@ -10,7 +10,8 @@ load disturbance. However, too much Kd will cause excessive response and oversho
 A fast PID loop tuning usually overshoots slightly to reach the setpoint more quickly; however, some systems 
 cannot accept overshoot, in which case an overdamped closed-loop system is required, which will 
 require a Kp setting significantly less than half that of the Kp setting that was causing oscillation.
-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
+
+https://robotics.stackexchange.com/questions/18048/inverse-kinematics-for-differential-robot-knowing-linear-and-angular-velocities
 */ 
 
 volatile int posiL = 0;
@@ -25,18 +26,39 @@ float deltaEncoderTimeR = 0;
 long currentEncoderTimeR = 0;
 int encoderRPMR = 0;
 
-int enca = 5; // YELLOW LEFT
-int encb = 4; // WHITE
-int encc = 2; // needs changing to actual pin!! RIGHT
-int encd = 3; // needs changing to actual pin!!
-int pwmL = 17;
-int in2 = 8;
-int in1 = 9;
-int pwmR = 16; // needs changing to actual pin!!
-int in3 = 10;// needs changing to actual pin!!
-int in4 = 11;// needs changing to actual pin!!
+float WHEEL_BASE = 0.25;
+float RPM_TO_RAD_PER_S = 0.1047;
+float DIST_PER_RAD = 0.03; // this works out to be wheel radius - 2*pi*WHEEL_RADIUS, divided by the number of radians in a complete revolution, which is just 2*pi
 
 
+
+int pwmL = 17; // needs changing to actual pin!!
+int in1 = 9;// needs changing to actual pin!!
+int in2 = 8;// needs changing to actual pin!!
+int enca = 4; // needs changing to actual pin!! RIGHT
+int encb = 5; // needs changing to actual pin!!
+
+int pwmR = 16;
+int in3 = 10;
+int in4 = 11;
+int encc = 2; // YELLOW LEFT 2
+int encd = 3; // WHITE 3
+
+int ticksPerRev = 80;
+
+/*
+int pwmR = 17;
+int in3 = 9;
+int in4 = 8;
+int encc = 4; // YELLOW LEFT
+int encd = 5; // WHITE
+
+int pwmL = 16; // needs changing to actual pin!!
+int in1 = 10;// needs changing to actual pin!!
+int in2 = 11;// needs changing to actual pin!!
+int enca = 2; // needs changing to actual pin!! RIGHT
+int encb = 3; // needs changing to actual pin!!
+*/
 
 
 dcms pidL(10.0, 0.05, 8.0, 255, 0.0, 0.0);
@@ -71,34 +93,54 @@ void setup() {
 }
 
 void loop() { // put a time checker here, and then an if statment that looks for it and then publishes
-  int target = 0;
+  int target = -45;
   int pwrL, pwrR, dir;
   int loop_counter = 0;
-  
+  int loop_counter2 = 0;
+  int debug = 1;
+  float linear_velocity = 0.3;
+  float angular_velocity = 0.05;
+    
   while(1){
     loop_counter++;
+    loop_counter2++;
+
+    left_rpm  = (linear_velocity - 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
+    right_rpm = (linear_velocity + 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
+
+    pidL.evaluatePosition(encoderRPML,left_rpm,pwrL,dir);
+    pidL.setMotor(dir,pwrL,pwmL,in1,in2);
+
+    pidR.evaluatePosition(encoderRPMR,right_rpm,pwrR,dir);
+    pidR.setMotor(dir,pwrR,pwmR,in3,in4);
+
+
+
+    
     if(loop_counter == 10000){
-      target = random(-150, 150);
+      //target = random(-40, 40);
+      //target = 25;
+      target++;
+      if(target > 45){
+        target = -45;
+      }
       loop_counter = 0;
+    }
+    if(loop_counter2 == 1000 && debug == 1){
+      Serial.print(target);
+      Serial.print(" ");
+      Serial.print(encoderRPML);
+      Serial.print(" ");
+      Serial.print(encoderRPMR);    
+      Serial.println();
+      loop_counter2 = 0;
     }
 
 
-    pidL.evaluatePosition(encoderRPML,target,pwrL,dir);
-    pidL.setMotor(dir,pwrL,pwmL,in1,in2);
 
-    pidR.evaluatePosition(encoderRPMR,target,pwrR,dir);
-    pidR.setMotor(dir,pwrR,pwmL,in3,in4);
-
-    Serial.print(target);
-    Serial.print(" ");
-    Serial.print(encoderRPML);
-    Serial.print(" ");
-    Serial.print(encoderRPMR);    
-    //Serial.print(" ");
-    //Serial.print(encoderRPM);
-    Serial.println();
   }
 }
+
 
 
 
@@ -114,33 +156,33 @@ void loop() { // put a time checker here, and then an if statment that looks for
 
 void readEncoderL(){
   //2225 ticks per rev in this mode
-  int b = digitalRead(encb);
+
   currentEncoderTimeL = micros();
   deltaEncoderTimeL = ((float) (currentEncoderTimeL - previousEncoderTimeL))/( 1.0e6 );
   previousEncoderTimeL = currentEncoderTimeL;
-  if(b > 0){
+  if(digitalRead(encb) > 0){
     posiL++;
-    encoderRPML = (1/(deltaEncoderTimeL * 2225)*60);  
+    encoderRPML = (1/(deltaEncoderTimeL * ticksPerRev)*60);  
   }
   else{
     posiL--;
-    encoderRPML = (-1/(deltaEncoderTimeL * 2225)*60); 
+    encoderRPML = (-1/(deltaEncoderTimeL * ticksPerRev)*60); 
   }
 }
 
 void readEncoderR(){
   //2225 ticks per rev in this mode
-  int b = digitalRead(encd);
+
   currentEncoderTimeR = micros();
   deltaEncoderTimeR = ((float) (currentEncoderTimeR - previousEncoderTimeR))/( 1.0e6 );
   previousEncoderTimeR = currentEncoderTimeR;
-  if(b > 0){
+  if(digitalRead(encd) > 0){
     posiR++;
-    encoderRPMR = (1/(deltaEncoderTimeR * 2225)*60);  
+    encoderRPMR = (1/(deltaEncoderTimeR * ticksPerRev)*60);  
   }
   else{
     posiR--;
-    encoderRPMR = (-1/(deltaEncoderTimeR * 2225)*60); 
+    encoderRPMR = (-1/(deltaEncoderTimeR * ticksPerRev)*60); 
   }
 }
 
