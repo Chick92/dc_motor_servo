@@ -100,12 +100,13 @@ void loop() { // put a time checker here, and then an if statment that looks for
   int debug = 1;
   float linear_velocity = 0.3;
   float angular_velocity = 0.05;
+  float left_rpm, right_rpm;
     
   while(1){
     loop_counter++;
     loop_counter2++;
 
-    left_rpm  = (linear_velocity - 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
+    left_rpm  = -(linear_velocity - 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
     right_rpm = (linear_velocity + 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
 
     pidL.evaluatePosition(encoderRPML,left_rpm,pwrL,dir);
