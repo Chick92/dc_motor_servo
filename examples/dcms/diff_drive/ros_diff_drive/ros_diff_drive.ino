@@ -139,6 +139,17 @@ void setup() {
   //nh.advertise(rightPub);
   //nh.advertise(leftPub);
   nh.subscribe(subCmdVel);
+  //nh.logdebug("Debug Statement");
+  nh.loginfo("Osprey Systems Engineering UGV");
+  nh.loginfo("Version 0.0.1");
+  nh.loginfo("Dr. Benjamin Bird");
+  nh.loginfo("Isis - Beginning setup");
+  nh.loginfo("Osiris - Interrupts configured");
+  nh.loginfo("Set - Setup complete");
+  //nh.logwarn("Warnings.");
+  //nh.logerror("Errors..");
+  //nh.logfatal("Fatalities!");
+
 }
 
 void loop() { // put a time checker here, and then an if statment that looks for it and then publishes
@@ -148,9 +159,11 @@ void loop() { // put a time checker here, and then an if statment that looks for
   int loop_counter2 = 0;
   int debug = 0;
   float left_rpm, right_rpm;
-    
+  nh.loginfo("Ra - Sunrise - Entering main loop");
+
   while(1){
     nh.spinOnce();
+
     loop_counter++;
     loop_counter2++;
 

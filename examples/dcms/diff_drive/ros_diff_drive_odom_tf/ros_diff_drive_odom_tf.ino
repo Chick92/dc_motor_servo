@@ -1,4 +1,10 @@
 #include "dcms.h"
+#include <ros.h>
+#include <geometry_msgs/Twist.h>
+#include <ros/time.h>
+#include <tf/tf.h>
+#include <tf/transform_broadcaster.h>
+#include <nav_msgs/Odometry.h>
 
 /*
 If the system must remain online, one tuning method is to first set Ki Kd values to zero. 
@@ -14,6 +20,17 @@ require a Kp setting significantly less than half that of the Kp setting that wa
 https://robotics.stackexchange.com/questions/18048/inverse-kinematics-for-differential-robot-knowing-linear-and-angular-velocities
 */ 
 
+// if using this file on a new machine, you need to make changes to the arduino ros lib - 
+//gedit ~/Arduino/libraries/ros_lib/ros/node_handle.h
+//change OUTPUT_SIZE as to - 
+/* Node Handle 
+template<class Hardware,
+   int MAX_SUBSCRIBERS = 15,
+         int MAX_PUBLISHERS = 15,
+         int INPUT_SIZE = 512,
+         int OUTPUT_SIZE = 1024>
+*/
+
 volatile int posiL = 0;
 long previousEncoderTimeL = micros();
 float deltaEncoderTimeL = 0;
@@ -26,11 +43,16 @@ float deltaEncoderTimeR = 0;
 long currentEncoderTimeR = 0;
 int encoderRPMR = 0;
 
-float WHEEL_BASE = 0.25;
-float RPM_TO_RAD_PER_S = 0.1047;
+float RPM_TO_RAD_PER_S = 0.1047; 
+float linear_velocity = 0.0;
+float angular_velocity = 0.0;
+
+//adjust these 14 variables for a new robot
+
+float WHEEL_BASE = 0.25; //width between wheels
 float DIST_PER_RAD = 0.03; // this works out to be wheel radius - 2*pi*WHEEL_RADIUS, divided by the number of radians in a complete revolution, which is just 2*pi
-
-
+float CIRCUMFRANCE = 6.28318530718 * DIST_PER_RAD;
+int ticksPerRev = 80;
 
 int pwmL = 17; // needs changing to actual pin!!
 int in1 = 9;// needs changing to actual pin!!
@@ -44,116 +66,15 @@ int in4 = 11;
 int encc = 2; // YELLOW LEFT 2
 int encd = 3; // WHITE 3
 
-int ticksPerRev = 80;
-
-/*
-int pwmR = 17;
-int in3 = 9;
-int in4 = 8;
-int encc = 4; // YELLOW LEFT
-int encd = 5; // WHITE
-
-int pwmL = 16; // needs changing to actual pin!!
-int in1 = 10;// needs changing to actual pin!!
-int in2 = 11;// needs changing to actual pin!!
-int enca = 2; // needs changing to actual pin!! RIGHT
-int encb = 3; // needs changing to actual pin!!
-*/
-
-
-dcms pidL(10.0, 0.05, 8.0, 255, 0.0, 0.0);
-dcms pidR(10.0, 0.05, 8.0, 255, 0.0, 0.0);
-
-void setup() {
-  Serial.begin(115200);
-  pinMode(enca,INPUT);
-  pinMode(encb,INPUT);
-  attachInterrupt(digitalPinToInterrupt(enca),readEncoderL,RISING); // only need one encoder on interrupt as the other is read in the ISR for direction
-  pinMode(enca,INPUT);
-  pinMode(encb,INPUT);
-  
-  pinMode(pwmL,OUTPUT); // the duplicated declaration is required due to a bug in the arduino pico firmware, cba finding the link but it took ages to figure out.
-  pinMode(in1,OUTPUT);
-  pinMode(in2,OUTPUT);
-
-  pinMode(encc,INPUT);
-  pinMode(encd,INPUT);
-  attachInterrupt(digitalPinToInterrupt(encc),readEncoderR,RISING);
-  pinMode(encc,INPUT);
-  pinMode(encd,INPUT);
-  
-  pinMode(pwmR,OUTPUT);
-  pinMode(in3,OUTPUT);
-  pinMode(in4,OUTPUT);
-
-  pidL.setParams(10,0.05,8,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
-  pidR.setParams(10,0.05,8,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
-  
-  Serial.println("target pos");
-}
-
-void loop() { // put a time checker here, and then an if statment that looks for it and then publishes
-  int target = -45;
-  int pwrL, pwrR, dir;
-  int loop_counter = 0;
-  int loop_counter2 = 0;
-  int debug = 1;
-  float linear_velocity = 0.3;
-  float angular_velocity = 0.05;
-  float left_rpm, right_rpm;
-    
-  while(1){
-    loop_counter++;
-    loop_counter2++;
-
-    left_rpm  = -(linear_velocity - 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
-    right_rpm = (linear_velocity + 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
-
-    pidL.evaluatePosition(encoderRPML,left_rpm,pwrL,dir);
-    pidL.setMotor(dir,pwrL,pwmL,in1,in2);
-
-    pidR.evaluatePosition(encoderRPMR,right_rpm,pwrR,dir);
-    pidR.setMotor(dir,pwrR,pwmR,in3,in4);
-
-
-
-    
-    if(loop_counter == 10000){
-      //target = random(-40, 40);
-      //target = 25;
-      target++;
-      if(target > 45){
-        target = -45;
-      }
-      loop_counter = 0;
-    }
-    if(loop_counter2 == 1000 && debug == 1){
-      Serial.print(target);
-      Serial.print(" ");
-      Serial.print(encoderRPML);
-      Serial.print(" ");
-      Serial.print(encoderRPMR);    
-      Serial.println();
-      loop_counter2 = 0;
-    }
-
-
-
-  }
-}
 
 
 
 
 
 
-
-
-
-
-
-
-
+//rather than bother with timers etc (which may happen in anitteration of this code) i'm using the calculated rpm to determine the kinematic odom velocity
+//timers would be good though, as the rpm may not be reset to zero if the wheels are between an encoder tick when they stop. There is an if statement that checks
+//for a zero velocity command and sets the rpm accordingly though.
 
 void readEncoderL(){
   //2225 ticks per rev in this mode
@@ -187,158 +108,152 @@ void readEncoderR(){
   }
 }
 
-
-/*
-
-
-#include <ros/ros.h>
-#include <tf/transform_broadcaster.h>
-#include <nav_msgs/Odometry.h>
-
-int main(int argc, char** argv){
-  ros::init(argc, argv, "odometry_publisher");
-
-  ros::NodeHandle n;
-  ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 50);
-  tf::TransformBroadcaster odom_broadcaster;
-
-  double x = 0.0;
-  double y = 0.0;
-  double th = 0.0;
-
-  double vx = 0.1;
-  double vy = -0.1;
-  double vth = 0.1;
-
-  ros::Time current_time, last_time;
-  current_time = ros::Time::now();
-  last_time = ros::Time::now();
-
-  ros::Rate r(1.0);
-  while(n.ok()){
-
-    ros::spinOnce();               // check for incoming messages
-    current_time = ros::Time::now();
-
-    //compute odometry in a typical way given the velocities of the robot
-    double dt = (current_time - last_time).toSec();
-    double delta_x = (vx * cos(th) - vy * sin(th)) * dt;
-    double delta_y = (vx * sin(th) + vy * cos(th)) * dt;
-    double delta_th = vth * dt;
-
-    x += delta_x;
-    y += delta_y;
-    th += delta_th;
-
-    //since all odometry is 6DOF we'll need a quaternion created from yaw
-    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(th);
-
-    //first, we'll publish the transform over tf
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.stamp = current_time;
-    odom_trans.header.frame_id = "odom";
-    odom_trans.child_frame_id = "base_link";
-
-    odom_trans.transform.translation.x = x;
-    odom_trans.transform.translation.y = y;
-    odom_trans.transform.translation.z = 0.0;
-    odom_trans.transform.rotation = odom_quat;
-
-    //send the transform
-    odom_broadcaster.sendTransform(odom_trans);
-
-    //next, we'll publish the odometry message over ROS
-    nav_msgs::Odometry odom;
-    odom.header.stamp = current_time;
-    odom.header.frame_id = "odom";
-
-    //set the position
-    odom.pose.pose.position.x = x;
-    odom.pose.pose.position.y = y;
-    odom.pose.pose.position.z = 0.0;
-    odom.pose.pose.orientation = odom_quat;
-
-    //set the velocity
-    odom.child_frame_id = "base_link";
-    odom.twist.twist.linear.x = vx;
-    odom.twist.twist.linear.y = vy;
-    odom.twist.twist.angular.z = vth;
-
-    //publish the message
-    odom_pub.publish(odom);
-
-    last_time = current_time;
-    r.sleep();
-  }
+void cmdVelCallback(const geometry_msgs::Twist& cmdVel) {
+  linear_velocity = cmdVel.linear.x;
+  angular_velocity = cmdVel.angular.z;
 }
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-#include <ros.h>
-#include <ros/time.h>
-#include <tf/tf.h>
-#include <tf/transform_broadcaster.h>
+dcms pidL(10.0, 0.05, 8.0, 255, 0.0, 0.0);
+dcms pidR(10.0, 0.05, 8.0, 255, 0.0, 0.0);
 
 ros::NodeHandle  nh;
+ros::Subscriber<geometry_msgs::Twist> subCmdVel("turtle1/cmd_vel", &cmdVelCallback );
 
 geometry_msgs::TransformStamped t;
 tf::TransformBroadcaster broadcaster;
+nav_msgs::Odometry odom;
+ros::Publisher odom_pub("odom", &odom);
 
-double x = 1.0;
-double y = 0.0;
-double theta = 1.57;
 
-char base_link[] = "/base_link";
-char odom[] = "/odom";
 
-void setup()
-{
+
+
+
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(enca,INPUT);
+  pinMode(encb,INPUT);
+  attachInterrupt(digitalPinToInterrupt(enca),readEncoderL,RISING); // only need one encoder on interrupt as the other is read in the ISR for direction
+  pinMode(enca,INPUT);
+  pinMode(encb,INPUT);
+  
+  pinMode(pwmL,OUTPUT); // the duplicated declaration is required due to a bug in the arduino pico firmware, cba finding the link but it took ages to figure out.
+  pinMode(in1,OUTPUT);
+  pinMode(in2,OUTPUT);
+
+  pinMode(encc,INPUT);
+  pinMode(encd,INPUT);
+  attachInterrupt(digitalPinToInterrupt(encc),readEncoderR,RISING);
+  pinMode(encc,INPUT);
+  pinMode(encd,INPUT);
+  
+  pinMode(pwmR,OUTPUT);
+  pinMode(in3,OUTPUT);
+  pinMode(in4,OUTPUT);
+
+  pidL.setParams(10,0.05,8,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
+  pidR.setParams(10,0.05,8,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
+  
   nh.initNode();
+
+  nh.subscribe(subCmdVel);
   broadcaster.init(nh);
+  nh.advertise(odom_pub);
+
+  //nh.logdebug("Debug Statement");
+  nh.loginfo("Osprey Systems Engineering UGV");
+  nh.loginfo("Version 0.0.1");
+  nh.loginfo("Dr. Benjamin Bird");
+  nh.loginfo("Isis - Beginning setup");
+  nh.loginfo("Osiris - Interrupts configured");
+  nh.loginfo("Set - Setup complete");
+  //nh.logwarn("Warnings.");
+  //nh.logerror("Errors..");
+  //nh.logfatal("Fatalities!");
+
 }
 
-void loop()
-{  
-  // drive in a circle
-  double dx = 0.2;
-  double dtheta = 0.18;
-  x += cos(theta)*dx*0.1;
-  y += sin(theta)*dx*0.1;
-  theta += dtheta*0.1;
-  if(theta > 3.14)
-    theta=-3.14;
+
+
+
+
+void loop() {
+  int pwrL, pwrR, dir;
+  float left_rpm, right_rpm, left_distance, right_distance, th, dx, dth, x, y, left_velocity, right_velocity;
+  char parent_frame[] = "/base_link";
+  char child_frame[] = "/odom";
+
+  nh.loginfo("Ra - Sunrise - Entering main loop");
+
+  while(1){
+    nh.spinOnce();
+
+
+
+    left_rpm  = -(linear_velocity - 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
+    right_rpm = (linear_velocity + 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
+
+    pidL.evaluatePosition(encoderRPML,left_rpm,pwrL,dir);
+    if(left_rpm == 0){
+      pwrL = 0.0;
+    }
+    pidL.setMotor(dir,pwrL,pwmL,in1,in2);
+
+    pidR.evaluatePosition(encoderRPMR,right_rpm,pwrR,dir);
+    if(right_rpm == 0){
+      pwrR = 0.0;
+    }
+    pidR.setMotor(dir,pwrR,pwmR,in3,in4);
+
+
+    left_distance = (posiL / ticksPerRev) * CIRCUMFRANCE;
+    right_distance = (posiR / ticksPerRev) * CIRCUMFRANCE;
+    th = (right_distance - left_distance)/WHEEL_BASE;
+
+    left_velocity = ((6.28318530718*encoderRPML)/60)*DIST_PER_RAD;
+    right_velocity = ((6.28318530718*encoderRPMR)/60)*DIST_PER_RAD;
+
+    dth = (right_velocity - left_velocity)/WHEEL_BASE;
+    dx = 0.5f * (left_velocity + right_velocity);
+
+    x += cos(th)*dx;
+    y += sin(th)*dx;
+
+    if(th > 3.14){
+      th =-3.14;
+    }
+
+
     
-  // tf odom->base_link
-  t.header.frame_id = odom;
-  t.child_frame_id = base_link;
+    // tf odom->base_link
+    t.header.frame_id = parent_frame;
+    t.child_frame_id = child_frame;
   
-  t.transform.translation.x = x;
-  t.transform.translation.y = y;
+    t.transform.translation.x = x;
+    t.transform.translation.y = y;
   
-  t.transform.rotation = tf::createQuaternionFromYaw(theta);
-  t.header.stamp = nh.now();
+    t.transform.rotation = tf::createQuaternionFromYaw(th);
+    t.header.stamp = nh.now();
   
-  broadcaster.sendTransform(t);
-  nh.spinOnce();
-  
-  delay(10);
+    broadcaster.sendTransform(t);
+
+
+    odom.header.frame_id = parent_frame;
+    odom.child_frame_id  = child_frame;
+
+    odom.pose.pose.position.x = x;
+    odom.pose.pose.position.y = y;
+    odom.pose.pose.position.z = 0;
+    odom.pose.pose.orientation = tf::createQuaternionFromYaw(th);
+
+    odom.twist.twist.linear.x  = dx;
+    odom.twist.twist.angular.z = dth;
+
+    odom.header.stamp = nh.now();;
+    odom_pub.publish(&odom);
+
+  }
 }
-
-
-
-
-*/
-
