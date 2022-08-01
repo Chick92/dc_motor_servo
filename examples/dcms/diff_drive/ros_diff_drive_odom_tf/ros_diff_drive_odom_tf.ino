@@ -5,6 +5,7 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/Empty.h>
 
 /*
 If the system must remain online, one tuning method is to first set Ki Kd values to zero. 
@@ -31,6 +32,10 @@ template<class Hardware,
          int OUTPUT_SIZE = 1024>
 */
 
+//rosrun rosserial_python serial_node.py /dev/ttyACM0
+//rostopic pub disable_torque std_msgs/Empty --once
+
+
 volatile int posiL = 0;
 long previousEncoderTimeL = micros();
 float deltaEncoderTimeL = 0;
@@ -46,6 +51,7 @@ int encoderRPMR = 0;
 float RPM_TO_RAD_PER_S = 0.1047; 
 float linear_velocity = 0.0;
 float angular_velocity = 0.0;
+bool torqueEnable = 1;
 
 //adjust these 14 variables for a new robot
 
@@ -113,6 +119,9 @@ void cmdVelCallback(const geometry_msgs::Twist& cmdVel) {
   angular_velocity = cmdVel.angular.z;
 }
 
+void messageCb( const std_msgs::Empty& toggle_msg){
+  torqueEnable = !torqueEnable;
+}
 
 
 dcms pidL(10.0, 0.05, 8.0, 255, 0.0, 0.0);
@@ -120,6 +129,7 @@ dcms pidR(10.0, 0.05, 8.0, 255, 0.0, 0.0);
 
 ros::NodeHandle  nh;
 ros::Subscriber<geometry_msgs::Twist> subCmdVel("turtle1/cmd_vel", &cmdVelCallback );
+ros::Subscriber<std_msgs::Empty> subTorque("disable_torque", &messageCb );
 
 geometry_msgs::TransformStamped t;
 tf::TransformBroadcaster broadcaster;
@@ -152,7 +162,7 @@ void setup() {
   
   pinMode(pwmR,OUTPUT);
   pinMode(in3,OUTPUT);
-  pinMode(in4,OUTPUT);
+  pinMode(in4,OUTPUT);36mm 12V 170RPM Brushed DC Gear Motor w/ Encoder (1:51)
 
   pidL.setParams(10,0.05,8,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
   pidR.setParams(10,0.05,8,255);//P D I maxOuput set p to 1 for posi control, D to 0.025 and i to 0
@@ -160,6 +170,7 @@ void setup() {
   nh.initNode();
 
   nh.subscribe(subCmdVel);
+  nh.subscribe(subTorque);
   broadcaster.init(nh);
   nh.advertise(odom_pub);
 
@@ -196,15 +207,24 @@ void loop() {
     left_rpm  = -(linear_velocity - 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
     right_rpm = (linear_velocity + 0.5f*angular_velocity*WHEEL_BASE)/(RPM_TO_RAD_PER_S * DIST_PER_RAD);
 
-    pidL.evaluatePosition(encoderRPML,left_rpm,pwrL,dir);
+    pidL.evaluatePosition(encoderRPML,left_rpm,pwrL,dir); // add a flag to check on some boolean message about disabling motors, if set
+    // make dir = 0, that will allow the motors to backdrive
     if(left_rpm == 0){
       pwrL = 0.0;
+      if(torqueEnable == 0){
+        dir = 0;
+        nh.loginfo("left motor torque disabled");
+      }
     }
     pidL.setMotor(dir,pwrL,pwmL,in1,in2);
 
     pidR.evaluatePosition(encoderRPMR,right_rpm,pwrR,dir);
     if(right_rpm == 0){
       pwrR = 0.0;
+      if(torqueEnable == 0){
+        dir = 0;
+        nh.loginfo("right motor torque disabled");
+      }
     }
     pidR.setMotor(dir,pwrR,pwmR,in3,in4);
 
